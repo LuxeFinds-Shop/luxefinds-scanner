@@ -40,7 +40,7 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.55);
       z-index: 2;
     }
     #viewfinder {
@@ -48,12 +48,12 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 80vw;
-      max-width: 380px;
-      aspect-ratio: 1 / 0.6; /* Etwas breiter für 1D-Barcodes */
-      border: 3px solid #00ff9d;
-      border-radius: 16px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+      width: 85vw;
+      max-width: 420px;
+      aspect-ratio: 4 / 2.2;
+      border: 4px solid #00ff9d;
+      border-radius: 20px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.65);
       pointer-events: none;
       z-index: 3;
     }
@@ -62,62 +62,62 @@
       top: 0;
       left: 0;
       right: 0;
-      padding: 16px;
-      background: rgba(0,0,0,0.6);
+      padding: 16px 24px;
+      background: rgba(0,0,0,0.7);
       text-align: center;
       font-size: 1rem;
       z-index: 5;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(12px);
     }
     #result-popup {
       position: absolute;
-      bottom: 20%;
+      bottom: 22%;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(15,15,15,0.92);
-      backdrop-filter: blur(12px);
+      background: rgba(20,20,20,0.94);
+      backdrop-filter: blur(16px);
       color: #fff;
-      padding: 20px 28px;
-      border-radius: 20px;
-      font-size: 1.4rem;
+      padding: 24px 32px;
+      border-radius: 24px;
+      font-size: 1.5rem;
       font-weight: 600;
-      max-width: 90%;
+      max-width: 92%;
       text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
       z-index: 10;
       opacity: 0;
-      transition: opacity 0.4s ease, transform 0.4s ease;
+      transition: opacity 0.5s ease, transform 0.5s ease;
       pointer-events: none;
     }
     #result-popup.show {
       opacity: 1;
-      transform: translateX(-50%) translateY(-10px);
+      transform: translateX(-50%) translateY(-15px);
     }
     #result-code {
-      font-size: 1.8rem;
+      font-size: 2rem;
       color: #00ff9d;
-      margin: 8px 0;
+      margin: 12px 0;
       word-break: break-all;
     }
     #stop-btn {
       position: absolute;
-      bottom: 40px;
+      bottom: 50px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 14px 32px;
-      background: rgba(255,255,255,0.15);
+      padding: 16px 40px;
+      background: rgba(255,255,255,0.18);
       color: white;
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 50px;
-      font-size: 1.1rem;
-      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 60px;
+      font-size: 1.2rem;
+      backdrop-filter: blur(12px);
       cursor: pointer;
       z-index: 5;
       transition: all 0.3s;
     }
-    #stop-btn:hover, #stop-btn:active {
-      background: rgba(255,255,255,0.25);
-      transform: translateX(-50%) scale(1.05);
+    #stop-btn:active {
+      background: rgba(255,255,255,0.3);
+      transform: translateX(-50%) scale(1.08);
     }
   </style>
 </head>
@@ -131,17 +131,17 @@
     <div id="status-bar">Kamera läuft – Barcode zentrieren</div>
 
     <div id="result-popup">
-      <div>Produkt erkannt</div>
+      <div>Scan erfolgreich</div>
       <div id="result-code"></div>
-      <div style="font-size:0.9rem; opacity:0.8; margin-top:8px;">Lager wird aktualisiert...</div>
+      <div style="font-size:0.95rem; opacity:0.85; margin-top:10px;">An Discord gesendet</div>
     </div>
 
-    <button id="stop-btn">Scanner stoppen</button>
+    <button id="stop-btn">Stoppen</button>
   </div>
 
-  <!-- Beep (ersetze später durch echte MP3: src="beep.mp3") -->
+  <!-- Echter Beep-Sound von freesound (zerolagtime/144418 – public domain, kurzer Scanner-Beep) -->
   <audio id="beep" preload="auto">
-    <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==" type="audio/wav">
+    <source src="https://cdn.freesound.org/previews/144/144418_2613695-lq.mp3" type="audio/mpeg">
   </audio>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -153,22 +153,43 @@
     const statusBar = document.getElementById("status-bar");
     let scanning = false;
 
+    const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1470520011096592415/QSAAy7JK_v83ymk8KlY2p8F5pjgnnSo5EQCFGv209KZN4sQNRqkRL-H6VzimoXfgMG_5";
+
+    async function sendToDiscord(code) {
+      try {
+        const payload = {
+          content: `**Neuer Scan:** \`${code}\` um ${new Date().toLocaleTimeString('de-DE')} (LuxeFinds Scanner)`
+        };
+        const response = await fetch(DISCORD_WEBHOOK, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error("Webhook-Fehler");
+      } catch (err) {
+        statusBar.textContent = "Webhook fehlgeschlagen: " + err.message;
+        statusBar.style.color = "#ff4d4d";
+      }
+    }
+
     function showResult(text) {
       resultCode.textContent = text;
       resultPopup.classList.add("show");
       beep.currentTime = 0;
       beep.play().catch(() => {});
 
-      // Auto-hide nach 4 Sekunden
+      sendToDiscord(text); // Sofort an Discord senden
+
       setTimeout(() => {
         resultPopup.classList.remove("show");
-      }, 4000);
+      }, 5000);
     }
 
     const config = {
       fps: 15,
-      qrbox: { width: 320, height: 180 },
+      qrbox: { width: 340, height: 180 },
       aspectRatio: 1.333,
+      showTorchButtonIfSupported: true,     // Torch-Button (Blitz) aktivieren!
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -180,11 +201,8 @@
     html5QrCode.start(
       { facingMode: "environment" },
       config,
-      (decodedText) => {
-        showResult(decodedText);
-        // Hier später Telegram senden: Telegram.WebApp.sendData(decodedText);
-      },
-      () => {} // Fehler leise ignorieren
+      (decodedText) => showResult(decodedText),
+      () => {} // Fehler ignorieren
     ).then(() => {
       scanning = true;
       statusBar.textContent = "Kamera läuft – Barcode zentrieren";
