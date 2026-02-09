@@ -2,84 +2,144 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>LuxeFinds Scanner</title>
 
-  <!-- PWA Icons & Manifest -->
+  <!-- PWA & Icons -->
   <link rel="manifest" href="./site.webmanifest">
-  <meta name="theme-color" content="#111111">
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta name="theme-color" content="#0f0f0f">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LuxeFinds Scanner">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="./android-chrome-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="./android-chrome-512x512.png">
 
   <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      margin: 0;
-      padding: 15px;
-      background: #111;
-      color: #eee;
-      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: manipulation;
     }
-    h2 {
-      margin: 10px 0 5px;
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
     }
     #reader {
-      width: 100%;
-      max-width: 640px;
-      margin: 15px auto;
-      border: 3px solid #4CAF50;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #000;
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
     }
-    #result {
-      font-size: 1.5em;
-      margin: 20px 10px;
-      padding: 20px;
-      background: #222;
-      border-radius: 10px;
-      min-height: 80px;
+    #overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: rgba(0,0,0,0.5);
+      z-index: 2;
+    }
+    #viewfinder {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80vw;
+      max-width: 380px;
+      aspect-ratio: 1 / 0.6; /* Etwas breiter für 1D-Barcodes */
+      border: 3px solid #00ff9d;
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+      pointer-events: none;
+      z-index: 3;
+    }
+    #status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      background: rgba(0,0,0,0.6);
+      text-align: center;
+      font-size: 1rem;
+      z-index: 5;
+      backdrop-filter: blur(10px);
+    }
+    #result-popup {
+      position: absolute;
+      bottom: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15,15,15,0.92);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 20px 28px;
+      border-radius: 20px;
+      font-size: 1.4rem;
+      font-weight: 600;
+      max-width: 90%;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      pointer-events: none;
+    }
+    #result-popup.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-10px);
+    }
+    #result-code {
+      font-size: 1.8rem;
+      color: #00ff9d;
+      margin: 8px 0;
       word-break: break-all;
     }
-    button {
-      padding: 14px 30px;
-      font-size: 1.2em;
-      margin: 10px;
-      background: #4CAF50;
+    #stop-btn {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 32px;
+      background: rgba(255,255,255,0.15);
       color: white;
-      border: none;
-      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      font-size: 1.1rem;
+      backdrop-filter: blur(10px);
       cursor: pointer;
+      z-index: 5;
+      transition: all 0.3s;
     }
-    button:hover {
-      background: #45a049;
-    }
-    .status {
-      color: #8BC34A;
-      font-weight: bold;
-    }
-    small {
-      color: #aaa;
-      display: block;
-      margin: 5px 0 15px;
+    #stop-btn:hover, #stop-btn:active {
+      background: rgba(255,255,255,0.25);
+      transform: translateX(-50%) scale(1.05);
     }
   </style>
 </head>
 <body>
 
-  <h2>🔍 LuxeFinds Scanner</h2>
-  <small>Nur klassische Strichcodes (EAN-13, EAN-8, UPC) – QR-Codes werden ignoriert</small>
+  <div id="container">
+    <div id="reader"></div>
+    <div id="overlay"></div>
+    <div id="viewfinder"></div>
 
-  <div id="reader"></div>
-  <div id="result">Positioniere einen Strichcode in der Mitte...</div>
+    <div id="status-bar">Kamera läuft – Barcode zentrieren</div>
 
-  <button onclick="stopScanning()">Scanner stoppen</button>
+    <div id="result-popup">
+      <div>Produkt erkannt</div>
+      <div id="result-code"></div>
+      <div style="font-size:0.9rem; opacity:0.8; margin-top:8px;">Lager wird aktualisiert...</div>
+    </div>
 
-  <!-- Beep-Sound (sehr einfach gehalten) -->
+    <button id="stop-btn">Scanner stoppen</button>
+  </div>
+
+  <!-- Beep (ersetze später durch echte MP3: src="beep.mp3") -->
   <audio id="beep" preload="auto">
     <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==" type="audio/wav">
   </audio>
@@ -87,20 +147,28 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
     const html5QrCode = new Html5Qrcode("reader");
-    const resultDiv = document.getElementById("result");
     const beep = document.getElementById("beep");
+    const resultPopup = document.getElementById("result-popup");
+    const resultCode = document.getElementById("result-code");
+    const statusBar = document.getElementById("status-bar");
     let scanning = false;
 
-    function onScanSuccess(decodedText) {
-      resultDiv.innerHTML = `<b>Code:</b> <span class="status">${decodedText}</span><br><small>${new Date().toLocaleTimeString()}</small>`;
+    function showResult(text) {
+      resultCode.textContent = text;
+      resultPopup.classList.add("show");
       beep.currentTime = 0;
-      beep.play().catch(() => {}); // Beep abspielen, Fehler ignorieren
+      beep.play().catch(() => {});
+
+      // Auto-hide nach 4 Sekunden
+      setTimeout(() => {
+        resultPopup.classList.remove("show");
+      }, 4000);
     }
 
-    const scannerConfig = {
-      fps: 12,
-      qrbox: { width: 450, height: 220 },
-      aspectRatio: 1.5,
+    const config = {
+      fps: 15,
+      qrbox: { width: 320, height: 180 },
+      aspectRatio: 1.333,
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -111,36 +179,35 @@
 
     html5QrCode.start(
       { facingMode: "environment" },
-      scannerConfig,
-      onScanSuccess,
-      (err) => { /* leise Fehler ignorieren */ }
+      config,
+      (decodedText) => {
+        showResult(decodedText);
+        // Hier später Telegram senden: Telegram.WebApp.sendData(decodedText);
+      },
+      () => {} // Fehler leise ignorieren
     ).then(() => {
       scanning = true;
-      resultDiv.textContent = "Kamera läuft – Strichcode scannen!";
+      statusBar.textContent = "Kamera läuft – Barcode zentrieren";
     }).catch(err => {
-      resultDiv.textContent = "Fehler: " + err;
-      console.error(err);
+      statusBar.textContent = "Fehler: " + err.message;
+      statusBar.style.color = "#ff4d4d";
     });
 
-    function stopScanning() {
+    document.getElementById("stop-btn").onclick = () => {
       if (scanning) {
         html5QrCode.stop().then(() => {
           scanning = false;
-          resultDiv.textContent = "Scanner gestoppt.";
-        }).catch(err => console.error(err));
+          statusBar.textContent = "Scanner gestoppt";
+        });
       }
-    }
+    };
   </script>
 
-  <!-- Service Worker für PWA (optional) -->
+  <!-- Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .catch(err => console.log('Service Worker Fehler:', err));
-      });
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
     }
   </script>
-
 </body>
 </html>
